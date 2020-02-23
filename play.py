@@ -273,12 +273,12 @@ def MoveCheck(check_area):
 
 class Window(object):
 
-    def __init__(self, h_substr, shot_area, h_template, b_template, h_treshold, b_treshold):
+    def __init__(self, h_substr, shot_area, h_template, h_treshold, b_template = 'no_button', b_treshold = 0):
         self.header_substr = h_substr
         self.shot_area = shot_area
         self.header_template = h_template
-        self.action_button_template = b_template
         self.header_treshold = h_treshold
+        self.action_button_template = b_template
         self.action_button_treshold = b_treshold
         self.close_button_template = './templates/b_close.png'
         self.close_button_treshold = 0.99
@@ -291,8 +291,9 @@ class Window(object):
         n_top = header_border_pos['top_left'][1]
         n_right = header_border_pos['bottom_right'][0]
         n_height = (header_border_pos['bottom_right'][1])-(header_border_pos['top_left'][1])
+        n_width = 500
         if (header_exist):
-            header_area = {'top': n_top, 'left': n_right, 'width': 500, 'height': n_height}
+            header_area = {'top': n_top, 'left': n_right, 'width': n_width, 'height': n_height}
             rec_text = recognize_image(header_area)
             pos = rec_text.upper().find(self.header_substr.upper())
             print(self.header_substr)
@@ -306,12 +307,33 @@ class Window(object):
         else:
             return False
 
-    def FindButton(self):
-        button_exist, self.action_button_pos = FindObject(self.screen, self.action_button_template, self.action_button_treshold)
+    def FindButton(self, type):
+        if (type.upper() == 'ACTION'):
+            button_temlate = self.action_button_template
+            button_treshold = self.action_button_treshold
+            if (button_temlate.upper() == 'NO_BUTTON'):
+                return False
+        elif (type.upper() == 'CLOSE'):
+            button_temlate = self.close_button_template
+            button_treshold = self.close_button_treshold
+
+        button_exist, button_pos = FindObject(self.screen, button_temlate, button_treshold)
+
+        if (type.upper() == 'ACTION'):
+            self.action_button_pos = button_pos
+        elif (type.upper() == 'CLOSE'):
+            self.close_button_pos = button_pos
+
+
         return button_exist
 
-    def PressButton(self):
-        MoveCurAndClick(self.action_button_pos['center_point'][0], self.action_button_pos['center_point'][1])
+    def PressButton(self, type):
+        if (type.upper() == 'ACTION'):
+            button_pos = self.action_button_pos
+        elif (type.upper() == 'CLOSE'):
+            button_pos = self.close_button_pos
+
+        MoveCurAndClick(button_pos['center_point'][0], button_pos['center_point'][1])
 
 
 class Icon(object):
@@ -348,20 +370,18 @@ class Vik_akk():
     def __init__(self):
         self.screenshot_area = {'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}
 
-    def PromoOff(self):
-        print('PromoOff start')
+    def PromoClose(self):
+        print('PromoClose start')
         header_substr = 'предложение'
         h_template = './templates/header_border_1.png'
-        b_template = './templates/b_close.png'
         h_treshold = 0.5
-        b_treshold = 0.99
 
-        promo_window = Window(header_substr, self.screenshot_area, h_template, b_template, h_treshold, b_treshold)
+        promo_window = Window(header_substr, self.screenshot_area, h_template, h_treshold)
         header_exist = promo_window.CheckHeader()
         if (header_exist):
-            button_exist = promo_window.FindButton()
+            button_exist = promo_window.FindButton('CLOSE')
             if (button_exist):
-                promo_window.PressButton()
+                promo_window.PressButton('CLOSE')
             else:
                 print('Кнопка не обнаружена')
 
@@ -383,9 +403,9 @@ class Vik_akk():
             dl_window = Window(header_substr, self.screenshot_area, h_template, b_template, h_treshold, b_treshold)
             header_exist = dl_window.CheckHeader()
             if (header_exist):
-                button_exist = dl_window.FindButton()
+                button_exist = dl_window.FindButton('ACTION')
                 if (button_exist):
-                    dl_window.PressButton()
+                    dl_window.PressButton('ACTION')
                 else:
                     print('Кнопка не обнаружена')
             else:
@@ -415,12 +435,12 @@ class Vik_akk():
             hlp_window = Window(header_substr, self.screenshot_area, h_template, b_template, h_treshold, b_treshold)
             header_exist = hlp_window.CheckHeader()
             if (header_exist):
-                button_exist = hlp_window.FindButton()
+                button_exist = hlp_window.FindButton('ACTION')
                 if (button_exist):
-                    hlp_window.PressButton()
+                    hlp_window.PressButton('ACTION')
                 else:
                     print('Кнопка не обнаружена')
-                close_button_exist = hlp_window.FindButton()
+                close_button_exist = hlp_window.FindButton('CLOSE')
         else:
             print('No icon')
 
@@ -444,10 +464,10 @@ class Vik_akk():
                 chol_window = Window(header_substr, self.screenshot_area, h_template, b_template, h_treshold, b_treshold)
                 header_exist = chol_window.CheckHeader()
                 if (header_exist):
-                    button_exist = chol_window.FindButton()
+                    button_exist = chol_window.FindButton('ACTION')
                     if (button_exist):
                         print('Кнопка найдена!')
-                        chol_window.PressButton()
+                        chol_window.PressButton('ACTION')
                     else:
                         print('Кнопка не найдена!')
             else:
@@ -459,7 +479,7 @@ class Vik_akk():
 Init()
 print(wcen)
 coolrock = Vik_akk()
-coolrock.PromoOff()
+coolrock.PromoClose()
 coolrock.TakeDailyLoyalBonus()
 coolrock.TakeChestOfLoki()
 #coolrock.PressHelp()
