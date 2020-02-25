@@ -203,6 +203,24 @@ def grayscale_3_levels(gray_img):
             break
     return gray_img
 
+
+def ImgToBW(gray_img):
+    high = 255
+    while(1):
+        low = high - 15
+        col_to_be_changed_low = np.array([low])
+        col_to_be_changed_high = np.array([high])
+        curr_mask = cv2.inRange(gray_img, col_to_be_changed_low, col_to_be_changed_high)
+        if (high >= 140):
+            gray_img[curr_mask > 0] = (255)
+        else:
+            gray_img[curr_mask > 0] = (0)
+        high -= 15
+        if(low == 0):
+            break
+    return gray_img
+
+
 def grayscale_17_levels(gray_img):
     high = 255
     while(1):
@@ -220,7 +238,7 @@ def recognize_image(rec_area):
     #rec_area = {'top': wcen['y']-293, 'left': wcen['x']-165, 'width': 325, 'height': 39}
     img = CutThePict(rec_area)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = grayscale_3_levels(img)
+    img = ImgToBW(img)
     cv2.imshow('image', img)
     cv2.waitKey(wc_time)
     cv2.destroyAllWindows()
@@ -400,7 +418,7 @@ class Vik_akk():
             b_template = './templates/b_take.png'
             h_treshold = 0.5
             b_treshold = 0.99
-            dl_window = Window(header_substr, self.screenshot_area, h_template, b_template, h_treshold, b_treshold)
+            dl_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
             header_exist = dl_window.CheckHeader()
             if (header_exist):
                 button_exist = dl_window.FindButton('ACTION')
@@ -432,7 +450,7 @@ class Vik_akk():
             b_template = './templates/b_help.png'
             h_treshold = 0.5
             b_treshold = 0.99
-            hlp_window = Window(header_substr, self.screenshot_area, h_template, b_template, h_treshold, b_treshold)
+            hlp_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
             header_exist = hlp_window.CheckHeader()
             if (header_exist):
                 button_exist = hlp_window.FindButton('ACTION')
@@ -461,7 +479,7 @@ class Vik_akk():
                 b_template = './templates/b_take_2.png'
                 h_treshold = 0.8
                 b_treshold = 0.5
-                chol_window = Window(header_substr, self.screenshot_area, h_template, b_template, h_treshold, b_treshold)
+                chol_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
                 header_exist = chol_window.CheckHeader()
                 if (header_exist):
                     button_exist = chol_window.FindButton('ACTION')
