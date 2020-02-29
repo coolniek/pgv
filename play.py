@@ -13,6 +13,13 @@ wc_time = 3000
 scr_resolution = {'x': 1920, 'y': 1080}
 
 
+def ClickDelayRand():
+    sleep_time = random.uniform(0.3, 0.6)
+    pg.mouseDown()
+    time.sleep(sleep_time)
+    pg.mouseUp()
+
+
 def MoveCursorRand(dest_x, dest_y, dur = 0.7):
     ## Any duration less than this is rounded to 0.0 to instantly move the mouse.
     pg.MINIMUM_DURATION = 0  # Default: 0.1
@@ -137,7 +144,7 @@ def FindObject(full_img, templ_img, treshold):
         #cv2.rectangle(full_img, top_left, bottom_right, (0, 255, 0), 1)
         #cv2.circle(full_img, center_point, 1, (0, 255, 0), 2)
         #cv2.imshow("img", full_img)
-        #cv2.waitKey(3000)
+        #cv2.waitKey(15000)
         #cv2.destroyAllWindows()
 
         position = {'top_left': top_left, 'bottom_right': bottom_right, 'center_point': center_point}
@@ -183,7 +190,8 @@ def MoveCurAndClick(x=0, y=0):
     #pg.moveTo(mv['x'], mv['y'], mv['tm'], pg.easeOutQuad)
     MoveCursorRand(mv['x'], mv['y'], mv['tm'])
     time.sleep(random.random() + 0.4)
-    pg.click()
+    ClickDelayRand()
+    #pg.click()
     time.sleep(random.randint(sleep_min, sleep_max))
 
 
@@ -304,6 +312,9 @@ class Window(object):
         self.action_button_pos = {'top_left': (0,0), 'bottom_right': (0,0), 'center_point': (0,0)}
         self.close_button_pos = {'top_left': (0,0), 'bottom_right': (0,0), 'center_point': (0,0)}
 
+    def FreshScreenShot(self):
+        self.screen = CutThePict(self.shot_area)
+
     def CheckHeader(self):
         header_exist, header_border_pos = FindObject(self.screen, self.header_template, self.header_treshold)
         n_top = header_border_pos['top_left'][1]
@@ -311,6 +322,7 @@ class Window(object):
         n_height = (header_border_pos['bottom_right'][1])-(header_border_pos['top_left'][1])
         n_width = 500
         if (header_exist):
+            #time.sleep(20)
             header_area = {'top': n_top, 'left': n_right, 'width': n_width, 'height': n_height}
             rec_text = recognize_image(header_area)
             pos = rec_text.upper().find(self.header_substr.upper())
@@ -327,6 +339,8 @@ class Window(object):
 
     def FindButton(self, type):
         if (type.upper() == 'ACTION'):
+            print(self.action_button_template)
+            print(self.action_button_treshold)
             button_temlate = self.action_button_template
             button_treshold = self.action_button_treshold
             if (button_temlate.upper() == 'NO_BUTTON'):
@@ -369,6 +383,23 @@ class Icon(object):
         #icon_exist = ColorExist(self.icon_area, self.icon_color_range)
         return icon_exist
 
+    def CheckNumber(self, number_color_range):
+        #number_color_range = {'low_col': (18,11,85), 'high_col': (38,25,151)} (BGR)
+        icon_exist, self.icon_pos = FindObject(self.screen, self.icon_template, self.icon_treshold)
+        # расширяем область поиска (при этом остаемся в границах разрешения экрана)
+        corr = 40
+        top_ext = self.icon_pos['top_left'][1]-corr
+        left_ext = self.icon_pos['top_left'][0]-corr
+        height_ext = (self.icon_pos['bottom_right'][1])-(self.icon_pos['top_left'][1]) + corr*2
+        width_ext = (self.icon_pos['bottom_right'][0])-(self.icon_pos['top_left'][0]) + corr*2
+        area_top = top_ext if (top_ext >= corr) else 0
+        area_left = left_ext if (left_ext >= corr) else 0
+        area_height = height_ext if (area_top + height_ext <= scr_resolution['y']) else scr_resolution['y'] - area_top
+        area_width = width_ext if (area_left + width_ext <= scr_resolution['x']) else scr_resolution['x'] - area_left
+        icon_area = {'top': area_top, 'left': area_left, 'width': area_width, 'height': area_height}
+        icon_numbered = ColorExist(icon_area, number_color_range)
+        return icon_numbered
+
     def Movement(self):
 #chol_icon_area = {'top': wcen['y']-11, 'left': wcen['x']-552, 'width': 40, 'height': 40} #33:510 - 73:550
         i_top = self.icon_pos['top_left'][1]
@@ -387,6 +418,7 @@ class Vik_akk():
     login = ''
     def __init__(self):
         self.screenshot_area = {'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}
+        self.red_number_color_range = {'low_col': (18,11,85), 'high_col': (38,25,151)}
 
     def PromoClose(self):
         print('PromoClose start')
@@ -400,6 +432,7 @@ class Vik_akk():
             button_exist = promo_window.FindButton('CLOSE')
             if (button_exist):
                 promo_window.PressButton('CLOSE')
+                print('button_exist =', button_exist)
             else:
                 print('Кнопка не обнаружена')
 
@@ -424,6 +457,7 @@ class Vik_akk():
                 button_exist = dl_window.FindButton('ACTION')
                 if (button_exist):
                     dl_window.PressButton('ACTION')
+                    print('button_exist =', button_exist)
                 else:
                     print('Кнопка не обнаружена')
             else:
@@ -456,11 +490,68 @@ class Vik_akk():
                 button_exist = hlp_window.FindButton('ACTION')
                 if (button_exist):
                     hlp_window.PressButton('ACTION')
+                    print('button_exist =', button_exist)
                 else:
                     print('Кнопка не обнаружена')
                 close_button_exist = hlp_window.FindButton('CLOSE')
+                if (close_button_exist):
+                    hlp_window.PressButton('CLOSE')
+                    print('close_button_exist =', close_button_exist)
+                else:
+                    print('Кнопка "закрыть" не обнаружена')
         else:
             print('No icon')
+
+
+    def TakeEveryDayBank(self):
+        print('TakeEveryDayBank start')
+        icon_template = './templates/icon_bank_part.png'
+        icon_treshold = 0.7
+        icon_number_cr = self.red_number_color_range
+        bank_icon = Icon(self.screenshot_area, icon_template, icon_treshold)
+        icon_numbered = bank_icon.CheckNumber(icon_number_cr)
+        if (icon_numbered):
+            print('Icon numbered')
+            bank_icon.Click()
+
+            header_substr = 'Банк'
+            h_template = './templates/header_border_1.png'
+            b_template = './templates/tab_bank_subscribe.png'
+            h_treshold = 0.5
+            b_treshold = 0.99
+            bank_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
+            header_exist = bank_window.CheckHeader()
+            #time.sleep(20)
+            button_exist = bank_window.FindButton('ACTION')
+            print('header_exist =', header_exist)
+            print('button_exist =', button_exist)
+            if (header_exist and button_exist):
+                bank_window.PressButton('ACTION')
+                print('Subscribe tab pressed')
+                bank_window.action_button_template = './templates/b_take_3.png'
+                bank_window.action_button_treshold = 0.8
+                bank_window.FreshScreenShot()
+                button_exist = bank_window.FindButton('ACTION')
+                if (button_exist):
+                    bank_window.PressButton('ACTION')
+                else:
+                    print('Кнопка "забрать" не обнаружена')
+                close_button_exist = bank_window.FindButton('CLOSE')
+                if (close_button_exist):
+                    bank_window.PressButton('CLOSE')
+                    print('close_button_exist =', close_button_exist)
+                else:
+                    print('Кнопка "закрыть" не обнаружена')
+            else:
+                print('Заголовок не соответсвует или вкладка не обнаружена')
+                close_button_exist = bank_window.FindButton('CLOSE')
+                if (close_button_exist):
+                    bank_window.PressButton('CLOSE')
+                    print('close_button_exist =', close_button_exist)
+                else:
+                    print('Кнопка "закрыть" не обнаружена')
+        else:
+            print('Icon NOT numbered')
 
 
     def TakeChestOfLoki(self):
@@ -486,6 +577,7 @@ class Vik_akk():
                     if (button_exist):
                         print('Кнопка найдена!')
                         chol_window.PressButton('ACTION')
+                        print('button_exist =', button_exist)
                     else:
                         print('Кнопка не найдена!')
             else:
@@ -497,10 +589,11 @@ class Vik_akk():
 Init()
 print(wcen)
 coolrock = Vik_akk()
-coolrock.PromoClose()
-coolrock.TakeDailyLoyalBonus()
-coolrock.TakeChestOfLoki()
+#coolrock.PromoClose()
+#coolrock.TakeDailyLoyalBonus()
+#coolrock.TakeChestOfLoki()
 #coolrock.PressHelp()
+coolrock.TakeEveryDayBank()
 #recognize_image()
 #file_name = CutThePict({'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}, png=True)
 #file_name = CutThePict({'top': 247, 'left': 830, 'width': 500, 'height': 42}, png=True)
