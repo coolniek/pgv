@@ -14,7 +14,7 @@ scr_resolution = {'x': 1920, 'y': 1080}
 
 
 def ClickDelayRand():
-    sleep_time = random.uniform(0.3, 0.6)
+    sleep_time = random.uniform(0.2, 0.5)
     pg.mouseDown()
     time.sleep(sleep_time)
     pg.mouseUp()
@@ -250,7 +250,7 @@ def recognize_image(rec_area):
     cv2.imshow('image', img)
     cv2.waitKey(wc_time)
     cv2.destroyAllWindows()
-    text='test'
+    #text='test'
     text = pytesseract.image_to_string(img, lang="rus")
     print(text)
     return text
@@ -506,7 +506,7 @@ class Vik_akk():
     def TakeEveryDayBank(self):
         print('TakeEveryDayBank start')
         icon_template = './templates/icon_bank_part.png'
-        icon_treshold = 0.7
+        icon_treshold = 0.9
         icon_number_cr = self.red_number_color_range
         bank_icon = Icon(self.screenshot_area, icon_template, icon_treshold)
         icon_numbered = bank_icon.CheckNumber(icon_number_cr)
@@ -528,12 +528,17 @@ class Vik_akk():
             if (header_exist and button_exist):
                 bank_window.PressButton('ACTION')
                 print('Subscribe tab pressed')
-                bank_window.action_button_template = './templates/b_take_3.png'
+                bank_window.action_button_template = './templates/b_take_3_bank1.png'
                 bank_window.action_button_treshold = 0.8
                 bank_window.FreshScreenShot()
                 button_exist = bank_window.FindButton('ACTION')
                 if (button_exist):
                     bank_window.PressButton('ACTION')
+                    bank_window.FreshScreenShot()
+                    bank_window.action_button_template = './templates/b_take_4_bank2.png'
+                    button_exist = bank_window.FindButton('ACTION')
+                    if (button_exist):
+                        bank_window.PressButton('ACTION')
                 else:
                     print('Кнопка "забрать" не обнаружена')
                 close_button_exist = bank_window.FindButton('CLOSE')
@@ -571,15 +576,13 @@ class Vik_akk():
                 h_treshold = 0.8
                 b_treshold = 0.5
                 chol_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
-                header_exist = chol_window.CheckHeader()
-                if (header_exist):
-                    button_exist = chol_window.FindButton('ACTION')
-                    if (button_exist):
-                        print('Кнопка найдена!')
-                        chol_window.PressButton('ACTION')
-                        print('button_exist =', button_exist)
-                    else:
-                        print('Кнопка не найдена!')
+                button_exist = chol_window.FindButton('ACTION')
+                if (button_exist):
+                    print('Кнопка найдена!')
+                    chol_window.PressButton('ACTION')
+                    print('button_exist =', button_exist)
+                else:
+                    print('Кнопка не найдена!')
             else:
                 print('No movement')
 
@@ -589,10 +592,10 @@ class Vik_akk():
 Init()
 print(wcen)
 coolrock = Vik_akk()
-#coolrock.PromoClose()
-#coolrock.TakeDailyLoyalBonus()
-#coolrock.TakeChestOfLoki()
-#coolrock.PressHelp()
+coolrock.PromoClose()
+coolrock.TakeDailyLoyalBonus()
+coolrock.TakeChestOfLoki()
+coolrock.PressHelp()
 coolrock.TakeEveryDayBank()
 #recognize_image()
 #file_name = CutThePict({'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}, png=True)
