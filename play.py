@@ -13,10 +13,10 @@ wc_time = 3000
 scr_resolution = {'x': 1920, 'y': 1080}
 
 
-def ClickDelayRand():
-    sleep_time = random.uniform(0.2, 0.5)
+def ClickRandDelay():
+    click_time = random.uniform(0.1, 0.5)
     pg.mouseDown()
-    time.sleep(sleep_time)
+    time.sleep(click_time)
     pg.mouseUp()
 
 
@@ -49,14 +49,14 @@ def MoveCursorRand(dest_x, dest_y, dur = 0.7):
     # чтобы по обеим осям курсор  прибыл в пункт назначения примерно синхронно
     if (abs(x_diff) > abs(y_diff)):
         x_avg_step = (x_min_step + x_max_step)/2
-        x_steps = round(x_diff/x_avg_step)
+        x_steps = round(x_diff/x_avg_step) if (abs(round(x_diff/x_avg_step)) > 0) else 1
         y_avg_step = round(y_diff/x_steps)
         y_min_step, y_max_step = abs(round((y_avg_step/3)*2)), abs(round((y_avg_step/3)*5))
         if ((y_min_step <= 1) or (y_max_step <= 1)):
             y_min_step, y_max_step = 2, 8
     else:
         y_avg_step = (y_min_step + y_max_step)/2
-        y_steps = round(y_diff/y_avg_step)
+        y_steps = round(y_diff/y_avg_step) if (abs(round(y_diff/y_avg_step)) > 0) else 1
         x_avg_step = round(x_diff/y_steps)
         x_min_step, x_max_step = abs(round((x_avg_step/3)*2)), abs(round((x_avg_step/3)*5))
         if ((x_min_step == 0) or (x_max_step ==0)):
@@ -107,16 +107,63 @@ def MoveCursorRand(dest_x, dest_y, dur = 0.7):
         time.sleep(timeout+t_rand)
 
 
+def RandomForMove(x, y):
+    random.seed(version=2)
+    tm_default = 0.5
+    params = {'x': x, 'y': y, 'tm': 0.5}
+    min_x = x-5
+    max_x = x+5
+    min_y = y-5
+    max_y = y+5
+    params['x'] = random.randint(min_x, max_x)
+    params['y'] = random.randint(min_y, max_y)
+    params['tm'] = random.uniform(0.67, 0.9)
+    return params
+
+
+def MoveCurAndClick(x=0, y=0, only_move=False):
+    print('x='+str(x)+', y='+str(y))
+    mv = RandomForMove(x, y)
+    print(mv)
+    MoveCursorRand(mv['x'], mv['y'], mv['tm'])
+    time.sleep(random.uniform(0.3, 0.9))
+    if (only_move == False):
+        ClickRandDelay()
+        SleepRand(1, 5)
+
+
+def SleepRand(sleep_min=3, sleep_max=10):
+    time.sleep(random.randint(sleep_min, sleep_max))
+
+
+def MultiClick(count=1):
+    clicked = 0
+    while (clicked < count):
+        after_click_time = random.uniform(0.45, 0.9)
+        ClickRandDelay()
+        time.sleep(after_click_time)
+        if (after_click_time > 0.75):
+            x, y = pg.position()
+            print('MultiClick. pg.position()=',pg.position())
+            MoveCurAndClick(x, y, only_move=True)
+        clicked += 1
+
+
 def CutThePict(area, png=False):
     area = area
     sct = mss()
     img = sct.grab(area)
     if (png == False):
-        img = np.array(img)
-        return img
+        img_np = np.array(img)
+
+        #img_name = str(time.time())[:10]+str(time.time())[-2:]
+        #output = "scr/"+img_name+".png"
+        #to_png(img.rgb, img.size, output=output)
+
+        return img_np
     else:
         img_name = str(time.time())[:10]+str(time.time())[-2:]
-        output = img_name+".png"
+        output = "scr/"+img_name+".png"
         to_png(img.rgb, img.size, output=output)
         return output
 
@@ -165,34 +212,6 @@ def viewImage(image):
     cv2.imshow('Display', image)
     cv2.waitKey(wc_time)
     cv2.destroyAllWindows()
-
-
-def RandomForMove(x, y):
-    random.seed(version=2)
-    tm_default = 0.5
-    params = {'x': x, 'y': y, 'tm': 0.5}
-    min_x = x-5
-    max_x = x+5
-    min_y = y-5
-    max_y = y+5
-    params['x'] = random.randint(min_x, max_x)
-    params['y'] = random.randint(min_y, max_y)
-    params['tm'] = random.uniform(0.67, 0.9)
-    return params
-
-
-def MoveCurAndClick(x=0, y=0):
-    sleep_min = 3
-    sleep_max = 10
-    print('x='+str(x)+', y='+str(y))
-    mv = RandomForMove(x, y)
-    print(mv)
-    #pg.moveTo(mv['x'], mv['y'], mv['tm'], pg.easeOutQuad)
-    MoveCursorRand(mv['x'], mv['y'], mv['tm'])
-    time.sleep(random.random() + 0.4)
-    ClickDelayRand()
-    #pg.click()
-    time.sleep(random.randint(sleep_min, sleep_max))
 
 
 def grayscale_3_levels(gray_img):
@@ -299,11 +318,21 @@ def MoveCheck(check_area):
 
 class Window(object):
 
-    def __init__(self, h_substr, shot_area, h_template, h_treshold, b_template = 'no_button', b_treshold = 0):
+    def __init__(self,
+                 shot_area,
+                 h_substr = 'no_header',
+                 h_template = 'no_header',
+                 h_treshold = 0,
+                 b_template = 'no_button',
+                 b_treshold = 0.7,
+                 e_template = 'no_element',
+                 e_treshold = 0.8):
         self.header_substr = h_substr
         self.shot_area = shot_area
         self.header_template = h_template
         self.header_treshold = h_treshold
+        self.element_template = e_template
+        self.element_treshold = e_treshold
         self.action_button_template = b_template
         self.action_button_treshold = b_treshold
         self.close_button_template = './templates/b_close.png'
@@ -316,6 +345,9 @@ class Window(object):
         self.screen = CutThePict(self.shot_area)
 
     def CheckHeader(self):
+        if (self.header_substr == 'no_header'):
+            return False
+
         header_exist, header_border_pos = FindObject(self.screen, self.header_template, self.header_treshold)
         n_top = header_border_pos['top_left'][1]
         n_right = header_border_pos['bottom_right'][0]
@@ -337,7 +369,11 @@ class Window(object):
         else:
             return False
 
-    def FindButton(self, type):
+    def CheckElement(self):
+        element_exist, element_pos = FindObject(self.screen, self.element_template, self.element_treshold)
+        return element_exist
+
+    def FindButton(self, type, move_to = False):
         if (type.upper() == 'ACTION'):
             print(self.action_button_template)
             print(self.action_button_treshold)
@@ -356,6 +392,8 @@ class Window(object):
         elif (type.upper() == 'CLOSE'):
             self.close_button_pos = button_pos
 
+        if (button_exist and move_to):
+            MoveCurAndClick(button_pos['center_point'][0], button_pos['center_point'][1], only_move = True)
 
         return button_exist
 
@@ -426,7 +464,7 @@ class Vik_akk():
         h_template = './templates/header_border_1.png'
         h_treshold = 0.5
 
-        promo_window = Window(header_substr, self.screenshot_area, h_template, h_treshold)
+        promo_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold)
         header_exist = promo_window.CheckHeader()
         if (header_exist):
             button_exist = promo_window.FindButton('CLOSE')
@@ -451,7 +489,7 @@ class Vik_akk():
             b_template = './templates/b_take.png'
             h_treshold = 0.5
             b_treshold = 0.99
-            dl_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
+            dl_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
             header_exist = dl_window.CheckHeader()
             if (header_exist):
                 button_exist = dl_window.FindButton('ACTION')
@@ -484,7 +522,7 @@ class Vik_akk():
             b_template = './templates/b_help.png'
             h_treshold = 0.5
             b_treshold = 0.99
-            hlp_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
+            hlp_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
             header_exist = hlp_window.CheckHeader()
             if (header_exist):
                 button_exist = hlp_window.FindButton('ACTION')
@@ -519,7 +557,7 @@ class Vik_akk():
             b_template = './templates/tab_bank_subscribe.png'
             h_treshold = 0.5
             b_treshold = 0.99
-            bank_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
+            bank_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
             header_exist = bank_window.CheckHeader()
             #time.sleep(20)
             button_exist = bank_window.FindButton('ACTION')
@@ -572,10 +610,10 @@ class Vik_akk():
                 chol_icon.Click()
                 header_substr = 'оки'
                 h_template = './templates/header_border_loki.png'
-                b_template = './templates/b_take_2.png'
+                b_template = './templates/b_take_loki.png'
                 h_treshold = 0.8
                 b_treshold = 0.5
-                chol_window = Window(header_substr, self.screenshot_area, h_template, h_treshold, b_template, b_treshold)
+                chol_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
                 button_exist = chol_window.FindButton('ACTION')
                 if (button_exist):
                     print('Кнопка найдена!')
@@ -587,16 +625,84 @@ class Vik_akk():
                 print('No movement')
 
 
+# Проверяем наличие новых заданий (число красном кружочке) и жмем на иконку при наличии
+# Проверяем наличие кнопки "Забрать все" и жмем ее при наличии
+# Если этой кнопки нет, ищем кнопку начать, перемещаемся на нее и прокликиваем.
+# Так для каждой вкладки
+    def TakeTasks(self):
+        print('TakeTasks start')
+        icon_template = './templates/icon_tasks.png'
+        icon_treshold = 0.7
+        icon_number_cr = self.red_number_color_range
+        task_icon = Icon(self.screenshot_area, icon_template, icon_treshold)
+        icon_numbered = task_icon.CheckNumber(icon_number_cr)
+        if (icon_numbered):
+            print('Icon numbered')
+            task_icon.Click()
+            tabs = ('./templates/tab_tasks_pers.png',
+                    './templates/tab_tasks_clan.png',
+                    './templates/tab_tasks_vip.png')
+            b_template = './templates/b_tasks_take_all.png'
+            e_template = './templates/elem_task.png'
+            b_treshold = 0.7
+            task_window = Window(self.screenshot_area, b_template = b_template, b_treshold = b_treshold, e_template = e_template)
+
+            for tab in tabs:
+                if (tab != tabs[0]):
+                    task_window.action_button_template = tab
+                    task_window.FreshScreenShot()
+                    tab_exist = task_window.FindButton('ACTION')
+                    if (tab_exist):
+                        task_window.PressButton('ACTION')
+                    else:
+                        return 1
+                b_template = './templates/b_tasks_take_all.png'
+                task_window.action_button_template = b_template
+                task_window.FreshScreenShot()
+                take_all_exist = task_window.FindButton('ACTION')
+                #take_all_exist = False
+                if (take_all_exist):
+                    print('Кнопка "Забрать всё" найдена')
+                    task_window.PressButton('ACTION')
+                else:
+                    task_window.action_button_template = './templates/b_tasks_start.png'
+                    task_window.FreshScreenShot()
+                    start_button_exist = task_window.FindButton('ACTION', move_to = True)
+                    #start_button_exist = True
+                    if (start_button_exist):
+                        elem_exist = task_window.CheckElement()
+                        while (elem_exist):
+                            print('elem_exist=',elem_exist)
+                            MultiClick(random.randint(3, 8))
+
+                            task_window.FreshScreenShot()
+                            elem_exist = task_window.CheckElement()
+
+            task_window.FindButton('CLOSE')
+            task_window.PressButton('CLOSE')
+
+
+
+            SleepRand()
+            #MultiClick(4)
+
 
 
 Init()
 print(wcen)
 coolrock = Vik_akk()
 coolrock.PromoClose()
+SleepRand()
 coolrock.TakeDailyLoyalBonus()
+SleepRand()
 coolrock.TakeChestOfLoki()
+SleepRand()
 coolrock.PressHelp()
+SleepRand()
 coolrock.TakeEveryDayBank()
+SleepRand()
+coolrock.TakeTasks()
+
 #recognize_image()
 #file_name = CutThePict({'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}, png=True)
 #file_name = CutThePict({'top': 247, 'left': 830, 'width': 500, 'height': 42}, png=True)
