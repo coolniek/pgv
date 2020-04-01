@@ -11,6 +11,7 @@ import random
 
 wc_time = 3000
 scr_resolution = {'x': 1920, 'y': 1080}
+random.seed(version=2)
 
 
 def ClickRandDelay():
@@ -108,7 +109,6 @@ def MoveCursorRand(dest_x, dest_y, dur = 0.7):
 
 
 def RandomForMove(x, y):
-    random.seed(version=2)
     tm_default = 0.5
     params = {'x': x, 'y': y, 'tm': 0.5}
     min_x = x-5
@@ -129,11 +129,13 @@ def MoveCurAndClick(x=0, y=0, only_move=False):
     time.sleep(random.uniform(0.3, 0.9))
     if (only_move == False):
         ClickRandDelay()
+        SleepRand(1, 2)
+        RandomMouseMove()
         SleepRand(1, 5)
 
 
 def SleepRand(sleep_min=3, sleep_max=10):
-    time.sleep(random.randint(sleep_min, sleep_max))
+    time.sleep(random.uniform(sleep_min, sleep_max))
 
 
 def MultiClick(count=1):
@@ -142,11 +144,44 @@ def MultiClick(count=1):
         after_click_time = random.uniform(0.45, 0.9)
         ClickRandDelay()
         time.sleep(after_click_time)
+        # немного смещаем курсор, если время задержки между кликами превысило определенный порог
         if (after_click_time > 0.75):
             x, y = pg.position()
             print('MultiClick. pg.position()=',pg.position())
             MoveCurAndClick(x, y, only_move=True)
         clicked += 1
+
+# Функция для имитации человеческого присутсвия
+# Двигает мышь в произвольное место в рамках заданного разрешения экрана
+# По умолчанию движение осуществляется примерно в 40% случаев
+def RandomMouseMove(treshold = 0.4):
+    if (random.random() <= treshold):
+        rand_x = random.randint(49, scr_resolution['x']-69)
+        rand_y = random.randint(53, scr_resolution['y']-65)
+        MoveCurAndClick(rand_x, rand_y, only_move = True)
+
+
+def ScrollMouse(number = 10, direction = 'DOWN'):
+    scrolled = 0
+    interim = 0
+    s_step = 1 if (direction == 'UP') else -1
+    min_scroll, max_scroll = number - 2, number + 3
+    target = random.randint(min_scroll, max_scroll)
+
+    interval = random.randint(5, 7)
+    while (scrolled < target):
+        interim = scrolled + interval
+        while ((scrolled < interim) and (scrolled < target)):
+            pg.scroll(s_step)
+            scrolled += 1
+            print(scrolled)
+            SleepRand(sleep_min=0.1, sleep_max=0.2)
+        SleepRand(sleep_min=0.6, sleep_max=0.9)
+
+def EnterText(text):
+    #pg.hotkey('shift', 'ctrl')
+    for w in text:
+        pg.write(w, 1)
 
 
 def CutThePict(area, png=False):
@@ -373,7 +408,7 @@ class Window(object):
         element_exist, element_pos = FindObject(self.screen, self.element_template, self.element_treshold)
         return element_exist
 
-    def FindButton(self, type, move_to = False):
+    def FindButton(self, type, move_to = False, press = False):
         if (type.upper() == 'ACTION'):
             print(self.action_button_template)
             print(self.action_button_treshold)
@@ -395,6 +430,9 @@ class Window(object):
         if (button_exist and move_to):
             MoveCurAndClick(button_pos['center_point'][0], button_pos['center_point'][1], only_move = True)
 
+        if (button_exist and press):
+            MoveCurAndClick(button_pos['center_point'][0], button_pos['center_point'][1])
+
         return button_exist
 
     def PressButton(self, type):
@@ -408,7 +446,7 @@ class Window(object):
 
 class Icon(object):
 #shot_area, ico_template, b_template, h_treshold,
-    def __init__(self, shot_area, icon_template, icon_treshold):
+    def __init__(self, shot_area, icon_template, icon_treshold = 0.7):
         """Constructor"""
         self.shot_area = shot_area
         self.icon_template = icon_template
@@ -461,18 +499,20 @@ class Vik_akk():
     def PromoClose(self):
         print('PromoClose start')
         header_substr = 'предложение'
-        h_template = './templates/header_border_1.png'
-        h_treshold = 0.5
+        e_template = './templates/header_border_1.png'
+        e_treshold = 0.5
 
-        promo_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold)
-        header_exist = promo_window.CheckHeader()
-        if (header_exist):
+        promo_window = Window(self.screenshot_area, e_template = e_template, e_treshold = e_treshold)
+        window_exist = promo_window.CheckElement()
+        if (window_exist):
             button_exist = promo_window.FindButton('CLOSE')
             if (button_exist):
                 promo_window.PressButton('CLOSE')
+                ScrollMouse(number = 11, direction = 'DOWN')
                 print('button_exist =', button_exist)
             else:
                 print('Кнопка не обнаружена')
+
 
     def TakeDailyLoyalBonus(self):
         print('TakeDailyLoyalBonus start')
@@ -484,20 +524,15 @@ class Vik_akk():
             print('Icon exist')
             dl_icon.Click()
 
-            header_substr = 'лояльно'
-            h_template = './templates/header_border_1.png'
-            b_template = './templates/b_take.png'
-            h_treshold = 0.5
-            b_treshold = 0.99
-            dl_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
+            dl_window = Window(self.screenshot_area,
+                               h_substr = 'лояльно',
+                               h_template = './templates/header_border_1.png',
+                               h_treshold = 0.5,
+                               b_template = './templates/b_take.png',
+                               b_treshold = 0.99)
             header_exist = dl_window.CheckHeader()
             if (header_exist):
-                button_exist = dl_window.FindButton('ACTION')
-                if (button_exist):
-                    dl_window.PressButton('ACTION')
-                    print('button_exist =', button_exist)
-                else:
-                    print('Кнопка не обнаружена')
+                button_exist = dl_window.FindButton('ACTION', press = True)
             else:
                 print('Необходимое окно не открылось')
                 # добавить закрытие окна
@@ -517,26 +552,16 @@ class Vik_akk():
             print('Icon exist')
             hlp_icon.Click()
 
-            header_substr = 'участник'
-            h_template = './templates/header_border_1.png'
-            b_template = './templates/b_help.png'
-            h_treshold = 0.5
-            b_treshold = 0.99
-            hlp_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
+            hlp_window = Window(self.screenshot_area,
+                                h_substr = 'участник',
+                                h_template = './templates/header_border_1.png',
+                                h_treshold = 0.5,
+                                b_template = './templates/b_help.png',
+                                b_treshold = 0.99)
             header_exist = hlp_window.CheckHeader()
             if (header_exist):
-                button_exist = hlp_window.FindButton('ACTION')
-                if (button_exist):
-                    hlp_window.PressButton('ACTION')
-                    print('button_exist =', button_exist)
-                else:
-                    print('Кнопка не обнаружена')
-                close_button_exist = hlp_window.FindButton('CLOSE')
-                if (close_button_exist):
-                    hlp_window.PressButton('CLOSE')
-                    print('close_button_exist =', close_button_exist)
-                else:
-                    print('Кнопка "закрыть" не обнаружена')
+                button_exist = hlp_window.FindButton('ACTION', press = True)
+                close_button_exist = hlp_window.FindButton('CLOSE', press = True)
         else:
             print('No icon')
 
@@ -552,12 +577,12 @@ class Vik_akk():
             print('Icon numbered')
             bank_icon.Click()
 
-            header_substr = 'Банк'
-            h_template = './templates/header_border_1.png'
-            b_template = './templates/tab_bank_subscribe.png'
-            h_treshold = 0.5
-            b_treshold = 0.99
-            bank_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
+            bank_window = Window(self.screenshot_area,
+                                 h_substr = 'Банк',
+                                 h_template = './templates/header_border_1.png',
+                                 h_treshold = 0.5,
+                                 b_template = './templates/tab_bank_subscribe.png',
+                                 b_treshold = 0.99)
             header_exist = bank_window.CheckHeader()
             #time.sleep(20)
             button_exist = bank_window.FindButton('ACTION')
@@ -574,25 +599,13 @@ class Vik_akk():
                     bank_window.PressButton('ACTION')
                     bank_window.FreshScreenShot()
                     bank_window.action_button_template = './templates/b_take_4_bank2.png'
-                    button_exist = bank_window.FindButton('ACTION')
-                    if (button_exist):
-                        bank_window.PressButton('ACTION')
+                    button_exist = bank_window.FindButton('ACTION', press = True)
                 else:
                     print('Кнопка "забрать" не обнаружена')
-                close_button_exist = bank_window.FindButton('CLOSE')
-                if (close_button_exist):
-                    bank_window.PressButton('CLOSE')
-                    print('close_button_exist =', close_button_exist)
-                else:
-                    print('Кнопка "закрыть" не обнаружена')
+                close_button_exist = bank_window.FindButton('CLOSE', press = True)
             else:
                 print('Заголовок не соответсвует или вкладка не обнаружена')
-                close_button_exist = bank_window.FindButton('CLOSE')
-                if (close_button_exist):
-                    bank_window.PressButton('CLOSE')
-                    print('close_button_exist =', close_button_exist)
-                else:
-                    print('Кнопка "закрыть" не обнаружена')
+                close_button_exist = bank_window.FindButton('CLOSE', press = True)
         else:
             print('Icon NOT numbered')
 
@@ -608,46 +621,59 @@ class Vik_akk():
             moving = chol_icon.Movement()
             if (moving):
                 chol_icon.Click()
-                header_substr = 'оки'
-                h_template = './templates/header_border_loki.png'
-                b_template = './templates/b_take_loki.png'
-                h_treshold = 0.8
-                b_treshold = 0.5
-                chol_window = Window(self.screenshot_area, header_substr, h_template = h_template, h_treshold = h_treshold, b_template = b_template, b_treshold = b_treshold)
-                button_exist = chol_window.FindButton('ACTION')
-                if (button_exist):
-                    print('Кнопка найдена!')
-                    chol_window.PressButton('ACTION')
-                    print('button_exist =', button_exist)
-                else:
-                    print('Кнопка не найдена!')
+                chol_window = Window(self.screenshot_area,
+                                     h_substr = 'оки',
+                                     h_template = './templates/header_border_loki.png',
+                                     h_treshold = 0.8,
+                                     b_template = './templates/b_take_loki.png',
+                                     b_treshold = 0.5)
+                button_exist = chol_window.FindButton('ACTION', press = True)
             else:
                 print('No movement')
 
 
 # Проверяем наличие новых заданий (число красном кружочке) и жмем на иконку при наличии
+# Так же жмем, если необходимо выполнить задания многократно (применяя обновление заданий)
 # Проверяем наличие кнопки "Забрать все" и жмем ее при наличии
 # Если этой кнопки нет, ищем кнопку начать, перемещаемся на нее и прокликиваем.
 # Так для каждой вкладки
-    def TakeTasks(self):
+# Может быть запрошено выполнение нескольких циклов заданий для какой-то из вкладок
+# take_tab - порядковый номер вкладки, для которой запрошено несколько заданий
+# take_number - требуемое количество циклов выполнения заданий для запрошенной вкладки
+    def TakeTasks(self, take_tab = 1, take_number = 1):
         print('TakeTasks start')
         icon_template = './templates/icon_tasks.png'
         icon_treshold = 0.7
         icon_number_cr = self.red_number_color_range
         task_icon = Icon(self.screenshot_area, icon_template, icon_treshold)
         icon_numbered = task_icon.CheckNumber(icon_number_cr)
-        if (icon_numbered):
+        if (icon_numbered or take_number > 1):
             print('Icon numbered')
             task_icon.Click()
+            # если активных заданий нет, то увеличиваем количество циклов на 1
+            # дабы выполнить ровно столько циклов заданий, сколько запрошено
+            if (icon_numbered == False):
+                take_number += 1
+            current_tab = 0
             tabs = ('./templates/tab_tasks_pers.png',
                     './templates/tab_tasks_clan.png',
                     './templates/tab_tasks_vip.png')
-            b_template = './templates/b_tasks_take_all.png'
-            e_template = './templates/elem_task.png'
-            b_treshold = 0.7
-            task_window = Window(self.screenshot_area, b_template = b_template, b_treshold = b_treshold, e_template = e_template)
+            t = {'take_all': './templates/b_tasks_take_all.png',
+                 'take': './templates/b_tasks_take.png',
+                 'start': './templates/b_tasks_start.png',
+                 'apply': './templates/b_tasks_apply.png',
+                 'collapsed_elem': './templates/elem_task.png',
+                 'expanded_elem': './templates/elem_task_expanded.png'}
+
+            task_window = Window(self.screenshot_area,
+                                 b_template = t['take_all'],
+                                 b_treshold = 0.7,
+                                 e_template = t['collapsed_elem'])
 
             for tab in tabs:
+                current_tab += 1
+                current_number = 0
+                number = take_number if (current_tab == take_tab) else 1
                 if (tab != tabs[0]):
                     task_window.action_button_template = tab
                     task_window.FreshScreenShot()
@@ -655,53 +681,140 @@ class Vik_akk():
                     if (tab_exist):
                         task_window.PressButton('ACTION')
                     else:
+                        task_window.FindButton('CLOSE', press = True)
                         return 1
-                b_template = './templates/b_tasks_take_all.png'
-                task_window.action_button_template = b_template
-                task_window.FreshScreenShot()
-                take_all_exist = task_window.FindButton('ACTION')
-                #take_all_exist = False
-                if (take_all_exist):
-                    print('Кнопка "Забрать всё" найдена')
-                    task_window.PressButton('ACTION')
-                else:
-                    task_window.action_button_template = './templates/b_tasks_start.png'
+
+                while (current_number < number):
+                    current_number += 1
+                    task_window.action_button_template = t['take_all']
+                    task_window.action_button_treshold = 0.99
                     task_window.FreshScreenShot()
-                    start_button_exist = task_window.FindButton('ACTION', move_to = True)
-                    #start_button_exist = True
-                    if (start_button_exist):
-                        elem_exist = task_window.CheckElement()
-                        while (elem_exist):
-                            print('elem_exist=',elem_exist)
-                            MultiClick(random.randint(3, 8))
+                    take_all_exist = task_window.FindButton('ACTION')
+                    if (take_all_exist):
+                        print('Кнопка "Забрать всё" найдена')
+                        task_window.PressButton('ACTION')
+                    else:
+                        RandomMouseMove(treshold = 0.3)
+                        task_window.action_button_template = t['take']
+                        take_button_exist = True
+                        while (take_button_exist):
+                            task_window.FreshScreenShot()
+                            take_button_exist = task_window.FindButton('ACTION')
+                            if (take_button_exist):
+                                task_window.PressButton('ACTION')
+
+                        RandomMouseMove(treshold = 1)
+                        task_window.action_button_template = t['start']
+                        task_window.element_template = t['collapsed_elem']
+                        task_window.FreshScreenShot()
+                        start_button_exist = task_window.FindButton('ACTION', move_to = True)
+                        collapsed_elem_exist = task_window.CheckElement()
+                        # пока присутствует характерный значек свернутого задания
+                        # или кнопка "начать", делаем рандомное количество кликов
+                        while (collapsed_elem_exist or start_button_exist):
+                            print('collapsed_elem_exist=',collapsed_elem_exist)
+                            MultiClick(random.randint(4, 12))
 
                             task_window.FreshScreenShot()
-                            elem_exist = task_window.CheckElement()
+                            task_window.element_template = t['collapsed_elem']
+                            collapsed_elem_exist = task_window.CheckElement()
+                            task_window.element_template = t['expanded_elem']
+                            expanded_elem_exist = task_window.CheckElement()
+                            # если значка свернутого задания нет, или есть
+                            # значек развернутого задания, проверяем наличие кнопок "начать" и "забрать"
+                            if (collapsed_elem_exist == False or expanded_elem_exist == True):
+                                RandomMouseMove(treshold = 1)
+                                task_window.FreshScreenShot()
+                                start_button_exist = task_window.FindButton('ACTION', move_to = True)
+                                # если нет кнопки "начать", проверяем наличие "забрать"
+                                if (start_button_exist == False):
+                                    RandomMouseMove(treshold = 1)
+                                    task_window.action_button_template = t['take']
+                                    start_button_exist = task_window.FindButton('ACTION', move_to = True)
+                    if (current_number < number):
+                        task_window.action_button_template = t['apply']
+                        task_window.FreshScreenShot()
+                        apply_button_exist = task_window.FindButton('ACTION')
+                        if (apply_button_exist):
+                            task_window.PressButton('ACTION')
+                        else:
+                            number = current_number
 
-            task_window.FindButton('CLOSE')
-            task_window.PressButton('CLOSE')
-
-
-
+            task_window.FindButton('CLOSE', press = True)
             SleepRand()
-            #MultiClick(4)
 
+    def SendResources(self):
+        print('SendResources start')
+        zoom_template = './templates/zoom_panel.png'
+        zoom_icon = Icon(self.screenshot_area, zoom_template, icon_treshold = 0.99)
+        zoom_icon_exist = zoom_icon.Find()
+        if (zoom_icon_exist == False):
+            ScrollMouse(number = 12, direction = 'DOWN')
+        else:
+            print('Масштаб корректный')
+
+        icon_template = './templates/town_market_s.png'
+        icon_treshold = 0.7
+        market_icon = Icon(self.screenshot_area, icon_template, icon_treshold)
+        icon_exist = market_icon.Find()
+        if (icon_exist):
+            print('Market found')
+            market_icon.Click()
+            b_template = './templates/tab_market_help.png'
+            market_window = Window(self.screenshot_area, b_template = b_template)
+            help_tab_exist = market_window.FindButton('ACTION', press = True)
+            if (help_tab_exist):
+                print('Вкладка найдена и нажата')
+                market_window.action_button_template = './templates/field_market.png'
+                market_window.FreshScreenShot()
+                market_window.FindButton('ACTION', press = True)
+                EnterText('CoolRock')
+            else:
+                market_window.FindButton('CLOSE', press = True)
+
+
+
+    def TakeTechWorks(self):
+        print('TakeTechWorks start')
+        icon_template = './templates/icon_tech_works.png'
+        icon_treshold = 0.7
+        tw_icon = Icon(self.screenshot_area, icon_template, icon_treshold)
+        icon_exist = tw_icon.Find()
+        if (icon_exist):
+            print('Icon exist')
+            tw_icon.Click()
+            b_template = './templates/b_take_tech_works.png'
+            b_treshold = 0.5
+            tw_window = Window(self.screenshot_area, b_template = b_template, b_treshold = b_treshold)
+            button_exist = tw_window.FindButton('ACTION')
+            if (button_exist):
+                print('Кнопка найдена!')
+                tw_window.PressButton('ACTION')
+                print('button_exist =', button_exist)
+            else:
+                print('Кнопка не найдена!')
 
 
 Init()
 print(wcen)
 coolrock = Vik_akk()
 coolrock.PromoClose()
-SleepRand()
+SleepRand(3, 5)
 coolrock.TakeDailyLoyalBonus()
-SleepRand()
+SleepRand(3, 5)
 coolrock.TakeChestOfLoki()
-SleepRand()
+SleepRand(2, 4)
 coolrock.PressHelp()
-SleepRand()
+SleepRand(3, 5)
 coolrock.TakeEveryDayBank()
-SleepRand()
-coolrock.TakeTasks()
+SleepRand(3, 5)
+coolrock.TakeTasks(take_tab = 3, take_number = 1)
+SleepRand(3, 5)
+#coolrock.SendResources()
+#coolrock.TakeTechWorks()
+#SleepRand(3, 5)
+
+
 
 #recognize_image()
 #file_name = CutThePict({'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}, png=True)
