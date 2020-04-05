@@ -108,7 +108,7 @@ def MoveCursorRand(dest_x, dest_y, dur = 0.7):
         time.sleep(timeout+t_rand)
 
 
-def RandomForMove(x, y):
+def RandomNearbyPoint(x, y):
     tm_default = 0.5
     params = {'x': x, 'y': y, 'tm': 0.5}
     min_x = x-5
@@ -123,7 +123,7 @@ def RandomForMove(x, y):
 
 def MoveCurAndClick(x=0, y=0, only_move=False):
     print('x='+str(x)+', y='+str(y))
-    mv = RandomForMove(x, y)
+    mv = RandomNearbyPoint(x, y)
     print(mv)
     MoveCursorRand(mv['x'], mv['y'], mv['tm'])
     time.sleep(random.uniform(0.3, 0.9))
@@ -178,10 +178,101 @@ def ScrollMouse(number = 10, direction = 'DOWN'):
             SleepRand(sleep_min=0.1, sleep_max=0.2)
         SleepRand(sleep_min=0.6, sleep_max=0.9)
 
-def EnterText(text):
-    #pg.hotkey('shift', 'ctrl')
+
+def DragAndDrop(start_point, end_point):
+    start_point = {'x': 2, 'y': 4}
+    end_point = {'x': 12, 'y': 4}
+    MoveCurAndClick(start_point['x'], start_point['y'], only_move=True)
+    pg.mouseDown()
+    MoveCurAndClick(end_point['x'], end_point['y'], only_move=True)
+    pg.mouseUp()
+
+
+# Convert cyrilic symbols to latin layout
+def ConvertToLat(text):
+    text2 = ''
+    text = text.lower()
+    map = {'й': 'q', 'ц': 'w', 'у': 'e', 'к': 'r', 'е': 't', 'н': 'y',
+           'г': 'u', 'ш': 'i', 'щ': 'o', 'з': 'p', 'х': '[', 'ъ': ']',
+           'ф': 'a', 'ы': 's', 'в': 'd', 'а': 'f', 'п': 'g', 'р': 'h',
+           'о': 'j', 'л': 'k', 'д': 'l', 'ж': ';', 'э': '\'', 'я': 'z',
+           'ч': 'x', 'с': 'c', 'м': 'v', 'и': 'b', 'т': 'n', 'ь': 'm',
+           'б': ',', 'ю': '.'
+    }
+    for t in text:
+        text2 += map[t] if (t in map) else t
+    return text2
+
+def ValidParam(valid_list, verifiable):
+    if (verifiable in valid_list):
+        return True
+    else:
+        #print('"' + s + '"' + ' is invalid parameter')
+        print('"%s" is invalid parameter' %verifiable)
+        print('Valid parameters are:', end = ' ')
+        for l in valid_list:
+            if (l != valid_list[len(valid_list)-1]):
+                print(l, end = ', ')
+            else:
+                print(l)
+        return False
+
+class Layout(object):
+    def __init__(self):
+        self.cur_layout = ''
+        self.valid_layouts = ('EN', 'RU')
+        self.screenshot_area = {'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}
+        self.layout_templ = {'en': './templates/icon_layout_en_linux.png',
+                             'ru': './templates/icon_layout_ru_linux.png'}
+
+    def Check(self):
+        layout_icon = Icon(shot_area = self.screenshot_area,
+                           icon_template = self.layout_templ['en'],
+                           icon_treshold = 0.8)
+        en_icon_exist = layout_icon.Find()
+        layout_icon.icon_template = self.layout_templ['ru']
+        ru_icon_exist = layout_icon.Find()
+        if (en_icon_exist):
+            self.cur_layout = 'EN'
+            return 'EN'
+        elif (ru_icon_exist):
+            self.cur_layout = 'RU'
+            return 'RU'
+
+    def Change(self, need_layout):
+        need_layout = need_layout.upper()
+
+        if not ValidParam(self.valid_layouts, need_layout):
+            return 1
+
+        if (need_layout.upper() != self.cur_layout):
+            pg.hotkey('shift', 'ctrl')
+
+        return self.Check()
+
+
+def EnterText(text='coolrock\4'):
+    print('text =', text)
+    text = text.lower()
+    cyr_sym = ('й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х',
+               'ъ', 'ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж',
+               'э', 'я', 'ч', 'с', 'м', 'и', 'т', 'ь', 'б', 'ю', 'ё')
+    lat_sym = ('q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o',
+               'p', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k',
+               'l', 'z', 'x', 'c', 'v', 'b', 'n', 'm')
+    layout = Layout()
+    cur_layout = layout.Check()
+
     for w in text:
-        pg.write(w, 1)
+        if (w in cyr_sym):
+            w = ConvertToLat(w)
+            if (cur_layout == 'EN'):
+                cur_layout = layout.Change('RU')
+        elif ((w in lat_sym) and (cur_layout == 'RU')):
+            cur_layout = layout.Change('EN')
+
+        SleepRand(0.05, 0.1)
+        pg.write(w, random.uniform(0.2, 0.65))
 
 
 def CutThePict(area, png=False):
@@ -498,11 +589,13 @@ class Vik_akk():
 
     def PromoClose(self):
         print('PromoClose start')
-        header_substr = 'предложение'
-        e_template = './templates/header_border_1.png'
-        e_treshold = 0.5
+        #header_substr = 'предложение'
+        #e_template = './templates/header_border_1.png'
+        #e_treshold = 0.5
 
-        promo_window = Window(self.screenshot_area, e_template = e_template, e_treshold = e_treshold)
+        promo_window = Window(self.screenshot_area,
+                              e_template = './templates/header_border_1.png',
+                              e_treshold = 0.5)
         window_exist = promo_window.CheckElement()
         if (window_exist):
             button_exist = promo_window.FindButton('CLOSE')
@@ -597,6 +690,7 @@ class Vik_akk():
                 button_exist = bank_window.FindButton('ACTION')
                 if (button_exist):
                     bank_window.PressButton('ACTION')
+                    SleepRand(1, 3)
                     bank_window.FreshScreenShot()
                     bank_window.action_button_template = './templates/b_take_4_bank2.png'
                     button_exist = bank_window.FindButton('ACTION', press = True)
@@ -743,7 +837,7 @@ class Vik_akk():
             task_window.FindButton('CLOSE', press = True)
             SleepRand()
 
-    def SendResources(self):
+    def SendResources(self, ReceiverName = r'coolrock\4'):
         print('SendResources start')
         zoom_template = './templates/zoom_panel.png'
         zoom_icon = Icon(self.screenshot_area, zoom_template, icon_treshold = 0.99)
@@ -768,7 +862,11 @@ class Vik_akk():
                 market_window.action_button_template = './templates/field_market.png'
                 market_window.FreshScreenShot()
                 market_window.FindButton('ACTION', press = True)
-                EnterText('CoolRock')
+                #ReceiverName = r'coolrock\4'
+                EnterText(text = ReceiverName)
+                market_window.action_button_template = './templates/b_market_send_res.png'
+                market_window.FreshScreenShot()
+                market_window.FindButton('ACTION', press = True)
             else:
                 market_window.FindButton('CLOSE', press = True)
 
@@ -796,21 +894,28 @@ class Vik_akk():
 
 
 Init()
-print(wcen)
+#print(wcen)
 coolrock = Vik_akk()
+s_range = (2, 4)
 coolrock.PromoClose()
-SleepRand(3, 5)
+SleepRand(s_range[0], s_range[1])
 coolrock.TakeDailyLoyalBonus()
-SleepRand(3, 5)
+SleepRand(2, 4)
 coolrock.TakeChestOfLoki()
 SleepRand(2, 4)
 coolrock.PressHelp()
-SleepRand(3, 5)
+SleepRand(2, 4)
 coolrock.TakeEveryDayBank()
-SleepRand(3, 5)
+SleepRand(2, 4)
 coolrock.TakeTasks(take_tab = 3, take_number = 1)
-SleepRand(3, 5)
-#coolrock.SendResources()
+SleepRand(2, 4)
+coolrock.SendResources(r'Цита')
+#SleepRand(2, 4)
+#ReceiverName = r'coolrock\4/'
+#ReceiverName = r'Тэст'
+#ReceiverName = '\'[]'
+##ReceiverName = '-Монарх-'
+##EnterText(text=ReceiverName)
 #coolrock.TakeTechWorks()
 #SleepRand(3, 5)
 
