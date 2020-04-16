@@ -9,9 +9,22 @@ import pytesseract
 import os
 import random
 
-wc_time = 3000
-scr_resolution = {'x': 1920, 'y': 1080}
-random.seed(version=2)
+def Init():
+    global acp_short, acp_long, debug, wc_time, scr_resolution
+    slow_machine = False
+    #slow_machine = True
+
+    if slow_machine:
+        acp_short = (0.6, 0.9) # after click pause
+        acp_long = (3, 5) # after click pause
+        scr_resolution = {'x': 1280, 'y': 1024}
+    else:
+        acp_short = (0.45, 0.7) # after click pause
+        acp_long = (2, 4) # after click pause
+        scr_resolution = {'x': 1920, 'y': 1080}
+    debug = False
+    wc_time = 3000
+    random.seed(version=2)
 
 
 def ClickRandDelay():
@@ -21,7 +34,7 @@ def ClickRandDelay():
     pg.mouseUp()
 
 
-def MoveCursorRand(dest_x, dest_y, dur = 0.7):
+def MoveCursorRandPath(dest_x, dest_y, dur = 0.7):
     ## Any duration less than this is rounded to 0.0 to instantly move the mouse.
     pg.MINIMUM_DURATION = 0  # Default: 0.1
     ## Minimal number of seconds to sleep between mouse moves.
@@ -62,9 +75,9 @@ def MoveCursorRand(dest_x, dest_y, dur = 0.7):
         x_min_step, x_max_step = abs(round((x_avg_step/3)*2)), abs(round((x_avg_step/3)*5))
         if ((x_min_step == 0) or (x_max_step ==0)):
             x_min_step, x_max_step = 2, 8
-
-    print(x_min_step, x_max_step)
-    print(y_min_step, y_max_step)
+    if (debug):
+        print(x_min_step, x_max_step)
+        print(y_min_step, y_max_step)
     points = []
     x_nearly, y_nearly = False, False
     # Пока не достигли координат назначения, прибавляем к каждой координате
@@ -92,7 +105,8 @@ def MoveCursorRand(dest_x, dest_y, dur = 0.7):
             y_nearly = True
             kr = random.uniform(0.9, 1.3)
             y = round(y - ky*step_y*kr)
-        print (x, y)
+        if (debug):
+            print (x, y)
         points.append((x,y))
 
     #Слегка меняем продолжительность движения
@@ -108,30 +122,37 @@ def MoveCursorRand(dest_x, dest_y, dur = 0.7):
         time.sleep(timeout+t_rand)
 
 
-def RandomNearbyPoint(x, y):
-    tm_default = 0.5
-    params = {'x': x, 'y': y, 'tm': 0.5}
-    min_x = x-5
-    max_x = x+5
-    min_y = y-5
-    max_y = y+5
-    params['x'] = random.randint(min_x, max_x)
-    params['y'] = random.randint(min_y, max_y)
-    params['tm'] = random.uniform(0.67, 0.9)
-    return params
+#def RandomNearbyPoint(x, y, x_slip = 5, y_slip = 5):
+#    tm_default = 0.5
+#    params = {'x': x, 'y': y, 'tm': 0.5}
+#    min_x, max_x = x-x_slip, x+x_slip
+#    min_y, max_y = y-y_slip, y+y_slip
+#    params['x'] = random.randint(min_x, max_x)
+#    params['y'] = random.randint(min_y, max_y)
+#    params['tm'] = random.uniform(0.67, 0.9)
+#    return params
 
 
-def MoveCurAndClick(x=0, y=0, only_move=False):
-    print('x='+str(x)+', y='+str(y))
-    mv = RandomNearbyPoint(x, y)
+def MoveCurAndClick(x = 0, y = 0,
+                    only_move = False,
+                    #rand_mov_chance = 0.001,
+                    x_slip = 5, y_slip = 5):
+    print('x='+str(x)+', y='+str(y)) if (debug) else 0
+    mv = {'x': x, 'y': y, 'tm': 0.5}
+    min_x, max_x = x-x_slip, x+x_slip
+    min_y, max_y = y-y_slip, y+y_slip
+    mv['x'] = random.randint(min_x, max_x)
+    mv['y'] = random.randint(min_y, max_y)
+    mv['tm'] = random.uniform(0.67, 0.9)
     print(mv)
-    MoveCursorRand(mv['x'], mv['y'], mv['tm'])
-    time.sleep(random.uniform(0.3, 0.9))
+
+    MoveCursorRandPath(mv['x'], mv['y'], mv['tm'])
+    SleepRand(acp_short[0], acp_short[1])
     if (only_move == False):
         ClickRandDelay()
-        SleepRand(1, 2)
-        RandomMouseMove()
-        SleepRand(1, 5)
+        SleepRand(acp_short[0], acp_short[1])
+        #RandomMouseMove(rand_mov_chance)
+        #SleepRand(acp_short[0], acp_short[1])
 
 
 def SleepRand(sleep_min=3, sleep_max=10):
@@ -153,12 +174,17 @@ def MultiClick(count=1):
 
 # Функция для имитации человеческого присутсвия
 # Двигает мышь в произвольное место в рамках заданного разрешения экрана
-# По умолчанию движение осуществляется примерно в 40% случаев
+# Движение может быть выполнено от 0 до 2 раз.
+# Количество определяется случайным образом в зависимости от указанной вероятности.
+# По умолчанию вероятность 40%. Вероятность второй итерации уменьшается в 2 раза.
 def RandomMouseMove(treshold = 0.4):
-    if (random.random() <= treshold):
-        rand_x = random.randint(49, scr_resolution['x']-69)
-        rand_y = random.randint(53, scr_resolution['y']-65)
-        MoveCurAndClick(rand_x, rand_y, only_move = True)
+    i = 0
+    while (i != 2):
+        i += 1
+        if (random.random() <= (treshold/i)):
+            rand_x = random.randint(49, scr_resolution['x']-69)
+            rand_y = random.randint(53, scr_resolution['y']-65)
+            MoveCurAndClick(rand_x, rand_y, only_move = True)
 
 
 def ScrollMouse(number = 10, direction = 'DOWN'):
@@ -175,13 +201,13 @@ def ScrollMouse(number = 10, direction = 'DOWN'):
             pg.scroll(s_step)
             scrolled += 1
             print(scrolled)
-            SleepRand(sleep_min=0.1, sleep_max=0.2)
-        SleepRand(sleep_min=0.6, sleep_max=0.9)
+            SleepRand(0.1, 0.2)
+        SleepRand(0.6, 0.9)
 
 
 def DragAndDrop(start_point, end_point):
-    start_point = {'x': 2, 'y': 4}
-    end_point = {'x': 12, 'y': 4}
+    #start_point = {'x': 2, 'y': 4}
+    #end_point = {'x': 12, 'y': 4}
     MoveCurAndClick(start_point['x'], start_point['y'], only_move=True)
     pg.mouseDown()
     MoveCurAndClick(end_point['x'], end_point['y'], only_move=True)
@@ -222,37 +248,41 @@ class Layout(object):
         self.cur_layout = ''
         self.valid_layouts = ('EN', 'RU')
         self.screenshot_area = {'top': 0, 'left': 0, 'width': scr_resolution['x'], 'height': scr_resolution['y']}
-        self.layout_templ = {'en': './templates/icon_layout_en_linux.png',
-                             'ru': './templates/icon_layout_ru_linux.png'}
+        self.layout_templ = {'en': './templates/icon_layout_en_linux2.png',
+                             'ru': './templates/icon_layout_ru_linux2.png'}
 
     def Check(self):
         layout_icon = Icon(shot_area = self.screenshot_area,
                            icon_template = self.layout_templ['en'],
-                           icon_treshold = 0.8)
+                           icon_treshold = 0.99)
+        layout_icon.icon_template = self.layout_templ['en']
         en_icon_exist = layout_icon.Find()
         layout_icon.icon_template = self.layout_templ['ru']
         ru_icon_exist = layout_icon.Find()
         if (en_icon_exist):
             self.cur_layout = 'EN'
-            return 'EN'
         elif (ru_icon_exist):
             self.cur_layout = 'RU'
-            return 'RU'
+        return self.cur_layout
 
     def Change(self, need_layout):
         need_layout = need_layout.upper()
+        print('Layout.Change')
+        print('need_layout =', need_layout)
+        print('self.cur_layout =',self.cur_layout)
 
         if not ValidParam(self.valid_layouts, need_layout):
             return 1
 
         if (need_layout.upper() != self.cur_layout):
+            print('press shift+ctrl')
             pg.hotkey('shift', 'ctrl')
+            SleepRand(acp_long[0], acp_long[1]) # delay for changing layout
 
         return self.Check()
 
 
 def EnterText(text='coolrock\4'):
-    print('text =', text)
     text = text.lower()
     cyr_sym = ('й', 'ц', 'у', 'к', 'е', 'н', 'г', 'ш', 'щ', 'з', 'х',
                'ъ', 'ф', 'ы', 'в', 'а', 'п', 'р', 'о', 'л', 'д', 'ж',
@@ -272,7 +302,8 @@ def EnterText(text='coolrock\4'):
             cur_layout = layout.Change('EN')
 
         SleepRand(0.05, 0.1)
-        pg.write(w, random.uniform(0.2, 0.65))
+        pg.write(w, random.uniform(0.1, 0.35))
+    SleepRand(acp_long[0], acp_long[1])
 
 
 def CutThePict(area, png=False):
@@ -314,23 +345,22 @@ def FindObject(full_img, templ_img, treshold):
         bottom_right = (top_left[0] + w, top_left[1] + h)
         center_point = (top_left[0] + half_w, top_left[1] + half_h)
 
-        #cv2.rectangle(full_img, top_left, bottom_right, (0, 255, 0), 1)
-        #cv2.circle(full_img, center_point, 1, (0, 255, 0), 2)
-        #cv2.imshow("img", full_img)
-        #cv2.waitKey(15000)
-        #cv2.destroyAllWindows()
+        if (debug):
+            cv2.rectangle(full_img, top_left, bottom_right, (0, 255, 0), 1)
+            cv2.circle(full_img, center_point, 1, (0, 255, 0), 2)
+
+            img_name = str(time.time())[:10]+str(time.time())[-2:]
+            path = 'scr'
+            output = "rect_"+img_name+".jpg"
+            cv2.imwrite(os.path.join(path , output), full_img)
+
+            #cv2.imshow("img", full_img)
+            #cv2.waitKey(15000)
+            #cv2.destroyAllWindows()
 
         position = {'top_left': top_left, 'bottom_right': bottom_right, 'center_point': center_point}
         found = True
     return found, position
-
-
-def Init():
-    global scr_resolut, wcen
-    #resolution and window center
-    #scr_resolut = {'x': '1280', 'y': '960'}
-    #scr_resolut = {'x': 1920, 'y': 1080}
-    wcen = {'x': 585, 'y': 521}
 
 
 def viewImage(image):
@@ -388,34 +418,35 @@ def grayscale_17_levels(gray_img):
     return gray_img
 
 def recognize_image(rec_area):
-    #rec_area = {'top': wcen['y']-293, 'left': wcen['x']-165, 'width': 325, 'height': 39}
     img = CutThePict(rec_area)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     img = ImgToBW(img)
-    cv2.imshow('image', img)
-    cv2.waitKey(wc_time)
-    cv2.destroyAllWindows()
+    if (debug):
+        cv2.imshow('image', img)
+        cv2.waitKey(wc_time)
+        cv2.destroyAllWindows()
     #text='test'
     text = pytesseract.image_to_string(img, lang="rus")
     print(text)
     return text
 
 def ColorExist(icon_area, color_range):
-    #icon_area = {'top': wcen['y']+343, 'left': wcen['x']+48, 'width': 66, 'height': 61}
     low_col = color_range['low_col']
     high_col = color_range['high_col']
     img = CutThePict(icon_area)
     #img = cv2.imread('daily_icon.png')
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    viewImage(img)
+    if (debug):
+        viewImage(img)
     print(type(img), img.shape)
     print(low_col, high_col)
 
     col_range = cv2.inRange(img, low_col, high_col)
 
-    cv2.imshow('col_range', col_range)
-    cv2.waitKey(wc_time)
+    if (debug):
+        cv2.imshow('col_range', col_range)
+        cv2.waitKey(wc_time)
     if (len(img[col_range > 0]) > 0):
         print(img[col_range > 0])
         return True
@@ -469,6 +500,7 @@ class Window(object):
 
     def FreshScreenShot(self):
         self.screen = CutThePict(self.shot_area)
+        SleepRand(0.1, 0.3)
 
     def CheckHeader(self):
         if (self.header_substr == 'no_header'):
@@ -499,10 +531,15 @@ class Window(object):
         element_exist, element_pos = FindObject(self.screen, self.element_template, self.element_treshold)
         return element_exist
 
-    def FindButton(self, type, move_to = False, press = False):
+    def FindButton(self, type,
+                   move_to = False,
+                   press = False,
+                   delay = True,
+                   rand_mov_chance = 0.3):
         if (type.upper() == 'ACTION'):
-            print(self.action_button_template)
-            print(self.action_button_treshold)
+            if (debug):
+                print(self.action_button_template)
+                print(self.action_button_treshold)
             button_temlate = self.action_button_template
             button_treshold = self.action_button_treshold
             if (button_temlate.upper() == 'NO_BUTTON'):
@@ -523,16 +560,22 @@ class Window(object):
 
         if (button_exist and press):
             MoveCurAndClick(button_pos['center_point'][0], button_pos['center_point'][1])
+            RandomMouseMove(rand_mov_chance)
+            if (delay == True):
+                SleepRand(acp_long[0], acp_long[1])
 
         return button_exist
 
-    def PressButton(self, type):
+    def PressButton(self, type, delay = True, rand_mov_chance = 0.3):
         if (type.upper() == 'ACTION'):
             button_pos = self.action_button_pos
         elif (type.upper() == 'CLOSE'):
             button_pos = self.close_button_pos
 
         MoveCurAndClick(button_pos['center_point'][0], button_pos['center_point'][1])
+        RandomMouseMove(rand_mov_chance)
+        if (delay == True):
+            SleepRand(acp_long[0], acp_long[1])
 
 
 class Icon(object):
@@ -542,16 +585,18 @@ class Icon(object):
         self.shot_area = shot_area
         self.icon_template = icon_template
         self.icon_treshold = icon_treshold
-        self.screen = CutThePict(self.shot_area)
         self.icon_pos = {'top_left': (0,0), 'bottom_right': (0,0), 'center_point': (0,0)}
+        #x_slip, y_slip = 0, 0
 
     def Find(self):
+        self.screen = CutThePict(self.shot_area)
         icon_exist, self.icon_pos = FindObject(self.screen, self.icon_template, self.icon_treshold)
         #icon_exist = ColorExist(self.icon_area, self.icon_color_range)
         return icon_exist
 
     def CheckNumber(self, number_color_range):
         #number_color_range = {'low_col': (18,11,85), 'high_col': (38,25,151)} (BGR)
+        self.screen = CutThePict(self.shot_area)
         icon_exist, self.icon_pos = FindObject(self.screen, self.icon_template, self.icon_treshold)
         # расширяем область поиска (при этом остаемся в границах разрешения экрана)
         corr = 40
@@ -568,7 +613,6 @@ class Icon(object):
         return icon_numbered
 
     def Movement(self):
-#chol_icon_area = {'top': wcen['y']-11, 'left': wcen['x']-552, 'width': 40, 'height': 40} #33:510 - 73:550
         i_top = self.icon_pos['top_left'][1]
         i_left = self.icon_pos['top_left'][0]
         i_width = self.icon_pos['bottom_right'][0]-self.icon_pos['top_left'][0]
@@ -577,8 +621,23 @@ class Icon(object):
         move = MoveCheck(icon_area)
         return move
 
-    def Click(self):
+    def Click(self, delay = True, rand_mov_chance = 0.3):
         MoveCurAndClick(self.icon_pos['center_point'][0], self.icon_pos['center_point'][1])
+        RandomMouseMove(rand_mov_chance)
+        if (delay == True):
+            SleepRand(acp_long[0], acp_long[1])
+
+
+class WindowIcon(object):
+    def __init__(self, shot_area, icon_template, icon_treshold = 0.7):
+        self.shot_area = shot_area
+        self.icon_template = icon_template
+        self.icon_treshold = icon_treshold
+        self.screen = CutThePict(self.shot_area)
+        self.icon_pos = {'top_left': (0,0), 'bottom_right': (0,0), 'center_point': (0,0)}
+
+        self.right_border_templ = ''
+        self.action_elem_templ = ''
 
 
 class Vik_akk():
@@ -690,7 +749,6 @@ class Vik_akk():
                 button_exist = bank_window.FindButton('ACTION')
                 if (button_exist):
                     bank_window.PressButton('ACTION')
-                    SleepRand(1, 3)
                     bank_window.FreshScreenShot()
                     bank_window.action_button_template = './templates/b_take_4_bank2.png'
                     button_exist = bank_window.FindButton('ACTION', press = True)
@@ -805,8 +863,11 @@ class Vik_akk():
                         collapsed_elem_exist = task_window.CheckElement()
                         # пока присутствует характерный значек свернутого задания
                         # или кнопка "начать", делаем рандомное количество кликов
+                        i = 0
                         while (collapsed_elem_exist or start_button_exist):
                             print('collapsed_elem_exist=',collapsed_elem_exist)
+                            i += 1
+                            print('i =', i)
                             MultiClick(random.randint(4, 12))
 
                             task_window.FreshScreenShot()
@@ -814,6 +875,9 @@ class Vik_akk():
                             collapsed_elem_exist = task_window.CheckElement()
                             task_window.element_template = t['expanded_elem']
                             expanded_elem_exist = task_window.CheckElement()
+                            if (i == 10):
+                                task_window.FreshScreenShot()
+                                start_button_exist = task_window.FindButton('ACTION', move_to = True)
                             # если значка свернутого задания нет, или есть
                             # значек развернутого задания, проверяем наличие кнопок "начать" и "забрать"
                             if (collapsed_elem_exist == False or expanded_elem_exist == True):
@@ -835,7 +899,7 @@ class Vik_akk():
                             number = current_number
 
             task_window.FindButton('CLOSE', press = True)
-            SleepRand()
+
 
     def SendResources(self, ReceiverName = r'coolrock\4'):
         print('SendResources start')
@@ -892,32 +956,111 @@ class Vik_akk():
             else:
                 print('Кнопка не найдена!')
 
+    def MultiBanUser(self, num = 1, close = True):
+        print('MultiBanUser start at %s' %time.asctime())
+        buttons = ('./templates/temp/b_ban_1.png',
+                   './templates/temp/b_ban_2.png',
+                   './templates/temp/b_unban_1.png',
+                   './templates/temp/b_yes.png',
+                   './templates/temp/b_close.png')
+        usr_window = Window(self.screenshot_area,
+                            b_treshold = 0.9)
+        i = 0
+        pressed = 0
+        while (i != num):
+            i += 1
+            print('i =', i)
+            for templ in buttons:
+                print(templ)
+                usr_window.action_button_template = templ
+                button_exist = False
+
+                # для кнопок из штатной последовательности делаем несколько попыток поиска
+                # для нестандартной кнопки - только одна попытка
+                j = 2 if (templ == buttons[4]) else 0
+                while ((not button_exist) and (j < 3)):
+                    j += 1
+
+                    if ((templ == buttons[0]) or (templ == buttons[2])):
+                        SleepRand(4, 6)
+
+                    usr_window.FreshScreenShot()
+                    button_exist = usr_window.FindButton('ACTION', press = True, delay = False, rand_mov_chance = 0.001)
+                    if ((not button_exist) and (templ != buttons[4])):
+                        print('Do not found button. Sleep and try again.')
+                        SleepRand(acp_long[0], acp_long[1])
+                    if (templ == buttons[0] and button_exist):
+                        pressed += 1
+                        print ('pressed =', pressed)
+
+        print('*****************')
+        print('TOTAL CLICKS: %s' %pressed)
+        print('End time: %s' %time.asctime())
+        print('*****************')
+        if (close):
+            x = 0
+            while (x != 2):
+                x += 1
+                usr_window.FreshScreenShot()
+                close_button_exist = usr_window.FindButton('CLOSE', press = True, rand_mov_chance = 0.1)
+                RandomMouseMove(treshold = 1)
+                print(close_button_exist)
+
+    def RenameAcc(self, start = 1, end = 2):
+        print('RenameAcc start')
+        buttons = ('./templates/temp/b_edit.png',
+                   './templates/temp/field_1.png',
+                   './templates/temp/b_apply.png')
+        profile_window = Window(self.screenshot_area,
+                                b_treshold = 0.9)
+        i = start-1
+        while (i != end):
+            i += 1
+            print('i =', i)
+            for templ in buttons:
+                profile_window.action_button_template = templ
+                button_exist = False
+                j = 0
+                while ((not button_exist) and (j < 3)):
+                    j += 1
+                    profile_window.FreshScreenShot()
+                    #добавить условие и тип FIELD для правильного позиционирования курсора
+                    button_exist = profile_window.FindButton('ACTION', press = True, delay = False, rand_mov_chance = 0.001)
+
+                    if (not button_exist):
+                        print('Do not found element. Sleep and try again.')
+                        SleepRand(acp_long[0], acp_long[1])
+                if (i > 1):
+                    j = 0
+                    while (j < len(str(i-1))):
+                        j += 1
+                        pg.hotkey('backspace')
+                        SleepRand(0.1, 0.5)
+
+                if (templ == buttons[1]):
+                    SleepRand(acp_short[0], acp_short[1])
+                    EnterText(text = str(i))
+
+
+
+
 
 Init()
-#print(wcen)
 coolrock = Vik_akk()
-s_range = (2, 4)
-coolrock.PromoClose()
-SleepRand(s_range[0], s_range[1])
-coolrock.TakeDailyLoyalBonus()
-SleepRand(2, 4)
-coolrock.TakeChestOfLoki()
-SleepRand(2, 4)
-coolrock.PressHelp()
-SleepRand(2, 4)
-coolrock.TakeEveryDayBank()
-SleepRand(2, 4)
-coolrock.TakeTasks(take_tab = 3, take_number = 1)
-SleepRand(2, 4)
-coolrock.SendResources(r'Цита')
-#SleepRand(2, 4)
-#ReceiverName = r'coolrock\4/'
-#ReceiverName = r'Тэст'
-#ReceiverName = '\'[]'
-##ReceiverName = '-Монарх-'
-##EnterText(text=ReceiverName)
+
+SleepRand(acp_long[0], acp_long[1])
+coolrock.MultiBanUser(90, close = False)
+#coolrock.RenameAcc(start = 21, end = 46)
+
+#coolrock.PromoClose()
+#coolrock.TakeDailyLoyalBonus()
+#coolrock.TakeChestOfLoki()
+#coolrock.PressHelp()
+#coolrock.TakeEveryDayBank()
+#coolrock.TakeTasks(take_tab = 3, take_number = 1)
 #coolrock.TakeTechWorks()
-#SleepRand(3, 5)
+#coolrock.SendResources(r'Цита')
+#coolrock.SendResources(r'CoolRock-4')
 
 
 
